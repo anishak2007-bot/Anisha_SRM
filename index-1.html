@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Record Manager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh;background:linear-gradient(135deg,#07111f,#10243b);color:#fff;padding:28px 15px}
+.container{max-width:1150px;margin:auto}
+header{text-align:center;margin-bottom:28px}
+.logo{width:70px;height:70px;margin:auto auto 14px;border-radius:20px;display:grid;place-items:center;font-size:34px;background:linear-gradient(135deg,#00c6ff,#0072ff);box-shadow:0 12px 35px #0072ff44}
+h1{font-size:clamp(28px,5vw,44px);margin-bottom:8px}
+header p{color:#aab8cc}
+.status{display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:7px 12px;border-radius:20px;background:#ffffff0d;color:#9fb0c5;font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:#f5b942}.online .dot{background:#20d49a}
+.grid{display:grid;grid-template-columns:350px 1fr;gap:22px}
+.card{background:#101c2ddd;border:1px solid #ffffff12;border-radius:18px;padding:24px;box-shadow:0 20px 50px #0005;backdrop-filter:blur(12px)}
+h2{font-size:20px;margin-bottom:20px}
+.group{margin-bottom:15px}
+label{display:block;font-size:14px;font-weight:700;color:#c7d2e2;margin-bottom:7px}
+input{width:100%;padding:13px;border-radius:9px;border:1px solid #2b3b52;background:#0a1422;color:#fff;outline:none;font-size:15px}
+input:focus{border-color:#00c6ff;box-shadow:0 0 0 3px #00c6ff18}
+button{border:0;border-radius:9px;padding:12px;cursor:pointer;font-weight:700;transition:.2s}
+button:hover{transform:translateY(-1px)}
+.add{width:100%;color:#fff;background:linear-gradient(135deg,#00c6ff,#0072ff)}
+.clear{width:100%;margin-top:9px;background:#243246;color:#c8d4e4}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.count{background:#00c6ff18;color:#5ddcff;padding:7px 12px;border-radius:20px;font-size:13px;font-weight:700}
+.search{margin-bottom:18px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:650px}
+th{text-align:left;background:#17263a;color:#91a5bf;padding:12px;font-size:12px;text-transform:uppercase}
+td{padding:13px 12px;border-bottom:1px solid #ffffff10;color:#dbe5f2;font-size:14px}
+.id{color:#4dd7ff;font-weight:700}
+.age{background:#00c6ff18;color:#61dfff;padding:4px 9px;border-radius:20px}
+.delete{background:#ff4d4d18;color:#ff8181;padding:7px 10px}
+.empty{text-align:center;padding:50px 10px;color:#718199}
+.empty div{font-size:42px;margin-bottom:10px}
+.actions{display:flex;gap:8px}
+.actions button{padding:7px 10px}
+.edit{background:#00c6ff18;color:#5ddcff}
+.toast{position:fixed;right:20px;bottom:20px;max-width:370px;padding:14px 18px;border-radius:10px;background:#162238;border:1px solid #ffffff15;box-shadow:0 10px 30px #0006;opacity:0;transform:translateY(30px);transition:.3s;pointer-events:none;z-index:10}
+.toast.show{opacity:1;transform:translateY(0)}
+.success{border-left:4px solid #20d49a}.error{border-left:4px solid #ff5c5c}
+footer{text-align:center;color:#68778d;font-size:13px;margin-top:24px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<div class="logo">🎓</div>
+<h1>Student Record Manager</h1>
+<p>Full-stack student management interface</p>
+<div class="status" id="status"><span class="dot"></span><span id="statusText">Local storage mode</span></div>
+</header>
+
+<main class="grid">
+<section class="card">
+<h2 id="formTitle">➕ Add Student</h2>
+<form id="studentForm">
+<div class="group"><label for="studentId">Student ID</label><input id="studentId" placeholder="Example: STU001" required></div>
+<div class="group"><label for="name">Full Name</label><input id="name" placeholder="Enter full name" required></div>
+<div class="group"><label for="email">Email Address</label><input id="email" type="email" placeholder="student@example.com" required></div>
+<div class="group"><label for="age">Age</label><input id="age" type="number" min="1" max="120" placeholder="Enter age" required></div>
+<button class="add" id="submitBtn" type="submit">Add Student</button>
+<button class="clear" type="button" onclick="clearForm()">Clear Form</button>
+</form>
+</section>
+
+<section class="card">
+<div class="top"><h2>📋 Student Records</h2><span class="count" id="count">0 Students</span></div>
+<div class="search"><input id="search" placeholder="🔍 Search by ID, name or email..." oninput="render()"></div>
+<div class="table-wrap">
+<table>
+<thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Age</th><th>Actions</th></tr></thead>
+<tbody id="records"></tbody>
+</table>
+<div class="empty" id="empty"><div>📚</div><p>No student records found.</p><small>Add a student using the form.</small></div>
+</div>
+</section>
+</main>
+<footer>Student Record Manager • Frontend + Python API ready</footer>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+/*
+  FRONTEND / BACKEND CONFIGURATION
+
+  For local testing with Flask:
+      API_BASE = "http://127.0.0.1:5000/api"
+
+  For a deployed Flask backend:
+      API_BASE = "https://YOUR-BACKEND.onrender.com/api"
+
+  GitHub Pages itself cannot execute Python. If API_BASE is empty,
+  this page automatically uses browser localStorage so all buttons work.
+*/
+const API_BASE = "";
+
+const KEY = "studentRecords";
+const EMAIL = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+let students = [];
+let editingId = null;
+let backendAvailable = false;
+
+async function start() {
+    if (API_BASE.trim()) {
+        try {
+            const response = await fetch(`${API_BASE}/students`);
+            if (!response.ok) throw new Error("Backend unavailable");
+            students = await response.json();
+            backendAvailable = true;
+            setStatus(true);
+        } catch (error) {
+            backendAvailable = false;
+            loadLocal();
+            setStatus(false);
+            showToast("Backend unavailable. Using local storage.", "error");
+        }
+    } else {
+        loadLocal();
+    }
+    render();
+}
+
+function loadLocal() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(KEY) || "[]");
+        students = Array.isArray(saved) ? saved : [];
+    } catch (error) {
+        students = [];
+    }
+}
+
+function saveLocal() {
+    localStorage.setItem(KEY, JSON.stringify(students));
+}
+
+function setStatus(online) {
+    const status = document.getElementById("status");
+    const text = document.getElementById("statusText");
+    status.classList.toggle("online", online);
+    text.textContent = online ? "Python backend connected" : "Local storage mode";
+}
+
+document.getElementById("studentForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const id = document.getElementById("studentId").value.trim();
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const age = Number(document.getElementById("age").value);
+
+    try {
+        if (!id || !name || !email) throw new Error("All fields are required.");
+        if (!EMAIL.test(email)) throw new Error("Please enter a valid email address.");
+        if (!Number.isInteger(age) || age < 1 || age > 120)
+            throw new Error("Age must be a whole number between 1 and 120.");
+
+        const student = { student_id:id, name:name, email:email, age:age };
+
+        if (backendAvailable) {
+            if (editingId) {
+                const response = await fetch(`${API_BASE}/students/${encodeURIComponent(editingId)}`, {
+                    method:"PUT",
+                    headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify(student)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Update failed.");
+                showToast("Student updated successfully.", "success");
+            } else {
+                const response = await fetch(`${API_BASE}/students`, {
+                    method:"POST",
+                    headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify(student)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Could not add student.");
+                showToast("Student added successfully.", "success");
+            }
+            students = await getBackendStudents();
+        } else {
+            if (editingId) {
+                const index = students.findIndex(s => s.student_id === editingId);
+                if (index < 0) throw new Error("Student record not found.");
+                if (students.some((s,i) => i !== index && s.student_id.toLowerCase() === id.toLowerCase()))
+                    throw new Error(`Student ID "${id}" already exists.`);
+                students[index] = student;
+                showToast("Student updated successfully.", "success");
+            } else {
+                if (students.some(s => s.student_id.toLowerCase() === id.toLowerCase()))
+                    throw new Error(`Student ID "${id}" already exists.`);
+                students.push(student);
+                showToast(`Student "${name}" added successfully.`, "success");
+            }
+            saveLocal();
+        }
+
+        clearForm();
+        render();
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+});
+
+async function getBackendStudents() {
+    const response = await fetch(`${API_BASE}/students`);
+    if (!response.ok) throw new Error("Could not load records.");
+    return await response.json();
+}
+
+async function editStudent(id) {
+    const student = students.find(s => s.student_id === id);
+    if (!student) return;
+
+    editingId = id;
+    document.getElementById("studentId").value = student.student_id;
+    document.getElementById("studentId").disabled = true;
+    document.getElementById("name").value = student.name;
+    document.getElementById("email").value = student.email;
+    document.getElementById("age").value = student.age;
+    document.getElementById("formTitle").textContent = "✏️ Edit Student";
+    document.getElementById("submitBtn").textContent = "Update Student";
+    window.scrollTo({top:0, behavior:"smooth"});
+}
+
+async function removeStudent(id) {
+    if (!confirm("Delete this student record?")) return;
+
+    try {
+        if (backendAvailable) {
+            const response = await fetch(`${API_BASE}/students/${encodeURIComponent(id)}`, {method:"DELETE"});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Delete failed.");
+            students = await getBackendStudents();
+        } else {
+            students = students.filter(s => s.student_id !== id);
+            saveLocal();
+        }
+        render();
+        showToast("Student deleted successfully.", "success");
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+}
+
+function clearForm() {
+    document.getElementById("studentForm").reset();
+    document.getElementById("studentId").disabled = false;
+    document.getElementById("formTitle").textContent = "➕ Add Student";
+    document.getElementById("submitBtn").textContent = "Add Student";
+    editingId = null;
+    document.getElementById("studentId").focus();
+}
+
+function render() {
+    const term = document.getElementById("search").value.toLowerCase().trim();
+    const filtered = students.filter(s =>
+        s.student_id.toLowerCase().includes(term) ||
+        s.name.toLowerCase().includes(term) ||
+        s.email.toLowerCase().includes(term)
+    );
+
+    const body = document.getElementById("records");
+    const empty = document.getElementById("empty");
+    body.innerHTML = "";
+    empty.style.display = filtered.length ? "none" : "block";
+
+    filtered.forEach(s => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><span class="id">${safe(s.student_id)}</span></td>
+            <td>${safe(s.name)}</td>
+            <td>${safe(s.email)}</td>
+            <td><span class="age">${s.age}</span></td>
+            <td>
+                <div class="actions">
+                    <button class="edit" onclick="editStudent('${jsSafe(s.student_id)}')">Edit</button>
+                    <button class="delete" onclick="removeStudent('${jsSafe(s.student_id)}')">Delete</button>
+                </div>
+            </td>`;
+        body.appendChild(tr);
+    });
+
+    document.getElementById("count").textContent =
+        `${students.length} ${students.length === 1 ? "Student" : "Students"}`;
+}
+
+function showToast(message, type) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => toast.className = "toast", 3000);
+}
+
+function safe(value) {
+    return String(value).replace(/[&<>"']/g, c =>
+        ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"})[c]
+    );
+}
+
+function jsSafe(value) {
+    return String(value).replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+}
+
+start();
+</script>
+</body>
+</html>
